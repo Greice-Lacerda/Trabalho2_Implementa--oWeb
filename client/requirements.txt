@@ -1,0 +1,1 @@
+requests==2.31.0 # Pode ser uma versão mais recente se preferir, mas esta é estável
