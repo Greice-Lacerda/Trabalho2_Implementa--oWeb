@@ -48,11 +48,24 @@ async function loadTasks() {
       li.innerHTML = `
                 <div>
                     <span class="task-title">${task.title}</span>
-                    <span class="task-status">${task.status}</span>
                     <span class="task-description">${task.description}</span>
+                    <span class="task-status">${task.status}</span>
                 </div>
-                <button class="delete-btn">Excluir</button>
+                <div class="task-actions">
+                    <select class="status-selector">
+                        <option value="pendente">Pendente</option>
+                        <option value="em progresso">Em Progresso</option>
+                        <option value="concluída">Concluída</option>
+                    </select>
+                    <button class="update-status-btn">Atualizar Status</button>
+                    <button class="delete-btn">Excluir</button>
+                </div>
             `;
+
+      // Configura o valor selecionado no dropdown de status
+      const statusSelector = li.querySelector(".status-selector");
+      statusSelector.value = task.status; // Define o status atual como selecionado
+
       tasksContainer.appendChild(li);
     });
   } catch (error) {
@@ -125,15 +138,52 @@ async function deleteTask(id) {
   }
 }
 
+// Nova função para atualizar apenas o status de uma tarefa
+async function updateTaskStatus(id, newStatus) {
+  try {
+    const response = await fetch(`${BASE_URL}/${id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ status: newStatus }), // Envia apenas o status
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(
+        errorData.message || `HTTP error! status: ${response.status}`
+      );
+    }
+
+    showMessage("Status da tarefa atualizado com sucesso!");
+    loadTasks(); // Recarrega a lista para refletir a mudança
+  } catch (error) {
+    console.error("Erro ao atualizar status da tarefa:", error);
+    showMessage(`Erro ao atualizar status: ${error.message}`, "error");
+  }
+}
+
 // --- Event Listeners ---
 addTaskBtn.addEventListener("click", addTask);
 
-// Usamos delegação de evento para os botões de exclusão
+// Usamos delegação de evento para os botões de exclusão e atualização
 tasksContainer.addEventListener("click", (event) => {
+  // Lógica para o botão de exclusão
   if (event.target.classList.contains("delete-btn")) {
     const li = event.target.closest("li"); // Encontra o elemento <li> pai
     const taskId = li.getAttribute("data-id");
     deleteTask(taskId);
+  }
+
+  // Lógica para o botão de atualização de status
+  if (event.target.classList.contains("update-status-btn")) {
+    const li = event.target.closest("li"); // Encontra o elemento <li> pai
+    const taskId = li.getAttribute("data-id");
+    const statusSelector = li.querySelector(".status-selector");
+    const newStatus = statusSelector.value; // Pega o novo status selecionado
+
+    updateTaskStatus(taskId, newStatus); // Chama a função de atualização
   }
 });
 
