@@ -11,6 +11,44 @@ document
   .querySelector(".container")
   .insertBefore(messageContainer, document.querySelector(".task-form"));
 
+// Novas variáveis para os botões de opção e a seção da lista de compras
+const taskOptionContainer = document.getElementById("taskOptionContainer");
+const newTaskOptionBtn = document.getElementById("newTaskOption");
+const createShoppingListOptionBtn = document.getElementById(
+  "createShoppingListOption"
+);
+const shoppingListContainer = document.getElementById("shoppingListContainer");
+const shoppingListCheckboxesContainer = document.getElementById(
+  "shoppingListCheckboxes"
+); // Novo contêiner para os checkboxes
+// O taskStatusSelect será usado para ambas as opções (tarefa e lista de compras)
+const addTaskForm = document.querySelector(".task-form"); // Formulário original de adição de tarefa
+
+// Itens de exemplo para a lista de compras
+const shoppingItems = [
+  "Arroz",
+  "Feijão",
+  "Café",
+  "Açúcar",
+  "Óleo",
+  "Leite",
+  "Pão",
+  "Ovos",
+  "Carne",
+  "Frango",
+  "Verduras",
+  "Frutas",
+  "Sabonete",
+  "Pasta de Dente",
+  "Papel Higiênico",
+  "Detergente",
+  "Desinfetante",
+  "Esponja",
+  "Vassoura",
+  "Doce",
+  "Biscoito"
+];
+
 // Função para exibir mensagens temporárias
 function showMessage(msg, type = "success") {
   messageContainer.textContent = msg;
@@ -48,8 +86,10 @@ async function loadTasks() {
       li.innerHTML = `
                 <div>
                     <span class="task-title">${task.title}</span>
-                    <span class="task-description">${task.description}</span>
-                    <span class="task-status">${task.status}</span>
+                    <span class="task-description">${task.description.replace(
+                      /\n/g,
+                      "<br>"
+                    )}</span> <span class="task-status">${task.status}</span>
                 </div>
                 <div class="task-actions">
                     <select class="status-selector">
@@ -75,7 +115,7 @@ async function loadTasks() {
   }
 }
 
-// Função para adicionar uma nova tarefa
+// Função para adicionar uma nova tarefa (lógica original)
 async function addTask() {
   const title = taskTitleInput.value.trim();
   const description = taskDescriptionInput.value.trim();
@@ -110,6 +150,62 @@ async function addTask() {
   } catch (error) {
     console.error("Erro ao adicionar tarefa:", error);
     showMessage(`Erro ao adicionar tarefa: ${error.message}`, "error");
+  }
+}
+
+// Função para adicionar uma lista de compras como tarefa
+async function addShoppingListTask() {
+  const selectedItems = Array.from(
+    shoppingListCheckboxesContainer.querySelectorAll(
+      'input[type="checkbox"]:checked'
+    )
+  ).map((checkbox) => checkbox.value);
+  const status = taskStatusSelect.value; // Pega o status do select comum
+
+  if (selectedItems.length === 0) {
+    showMessage(
+      "Selecione pelo menos um item para a lista de compras!",
+      "error"
+    );
+    return;
+  }
+
+  const title = "Fazer Compras";
+  const description = "Lista de itens:\n- " + selectedItems.join("\n- ");
+
+  try {
+    const response = await fetch(BASE_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ title, description, status }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(
+        errorData.message || `HTTP error! status: ${response.status}`
+      );
+    }
+
+    // Desmarca todos os checkboxes
+    shoppingListCheckboxesContainer
+      .querySelectorAll('input[type="checkbox"]')
+      .forEach((checkbox) => {
+        checkbox.checked = false;
+      });
+    showMessage("Lista de compras adicionada com sucesso!");
+    loadTasks(); // Recarrega a lista de tarefas
+    // Volta para a opção "Digitar nova tarefa" após adicionar a lista
+    newTaskOptionBtn.checked = true;
+    toggleTaskInputVisibility();
+  } catch (error) {
+    console.error("Erro ao adicionar lista de compras:", error);
+    showMessage(
+      `Erro ao adicionar lista de compras: ${error.message}`,
+      "error"
+    );
   }
 }
 
@@ -164,7 +260,52 @@ async function updateTaskStatus(id, newStatus) {
   }
 }
 
+// Função para preencher a lista de checkboxes de compras
+function populateShoppingListCheckboxes() {
+  shoppingListCheckboxesContainer.innerHTML = ""; // Limpa checkboxes existentes
+  shoppingItems.forEach((item, index) => {
+    const label = document.createElement("label");
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = item;
+    checkbox.id = `item-${index}`; // Adiciona um ID único
+
+    label.appendChild(checkbox);
+    label.appendChild(document.createTextNode(item));
+    shoppingListCheckboxesContainer.appendChild(label);
+    shoppingListCheckboxesContainer.appendChild(document.createElement("br")); // Para cada item em uma nova linha
+  });
+}
+
+// Função para alternar a visibilidade dos campos de entrada de tarefa/lista de compras
+function toggleTaskInputVisibility() {
+  if (newTaskOptionBtn.checked) {
+    addTaskForm.style.display = "flex"; // Mostra o formulário de tarefa (ajustado para flex)
+    shoppingListContainer.style.display = "none"; // Esconde a lista de compras
+    // Mantém o taskStatusSelect visível, pois ele é comum
+    addTaskBtn.removeEventListener("click", addShoppingListTask); // Remove o listener da lista de compras
+    addTaskBtn.addEventListener("click", addTask); // Adiciona o listener da tarefa normal
+    addTaskBtn.textContent = "Adicionar Tarefa";
+  } else if (createShoppingListOptionBtn.checked) {
+    addTaskForm.style.display = "none"; // Esconde o formulário de tarefa
+    shoppingListContainer.style.display = "block"; // Mostra a lista de compras
+    populateShoppingListCheckboxes(); // Preenche os checkboxes
+    // Mantém o taskStatusSelect visível, pois ele é comum
+    addTaskBtn.removeEventListener("click", addTask); // Remove o listener da tarefa normal
+    addTaskBtn.addEventListener("click", addShoppingListTask); // Adiciona o listener da lista de compras
+    addTaskBtn.textContent = "Criar Lista de Compras"; // Texto do botão muda
+  }
+}
+
 // --- Event Listeners ---
+// Adiciona listeners para os botões de opção
+newTaskOptionBtn.addEventListener("change", toggleTaskInputVisibility);
+createShoppingListOptionBtn.addEventListener(
+  "change",
+  toggleTaskInputVisibility
+);
+
+// Listener inicial para o botão de adicionar (será alternado pela função toggle)
 addTaskBtn.addEventListener("click", addTask);
 
 // Usamos delegação de evento para os botões de exclusão e atualização
@@ -188,4 +329,9 @@ tasksContainer.addEventListener("click", (event) => {
 });
 
 // Carregar as tarefas quando a página carregar
-document.addEventListener("DOMContentLoaded", loadTasks);
+document.addEventListener("DOMContentLoaded", () => {
+  loadTasks();
+  // Garante que a opção "Digitar nova tarefa" esteja selecionada por padrão ao carregar
+  newTaskOptionBtn.checked = true;
+  toggleTaskInputVisibility();
+});
